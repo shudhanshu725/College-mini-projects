@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Sorting Visualizer</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to right, #6a4592, #778db4);
+            color: #fff;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .head {
+            font-size: 2.5em;
+            margin: 20px 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .data-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px;
+            height: 300px;
+            align-items: flex-end;
+            padding: 10px;
+            border-radius: 10px;
+            background-color: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .bar {
+            width: 20px;
+            margin: 0 2px;
+            background: linear-gradient(to top, #000300, #81c784);
+            display: inline-block;
+            transition: height 0.3s ease, background-color 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+        }
+
+        .bar.comparing {
+            background: #ff9800;
+        }
+
+        .bar.swapping {
+            background: #f44336;
+        }
+
+        .bar.sorted {
+            background: #4caf50;
+        }
+
+        .bar.pivot {
+            background: #9c27b0;
+        }
+
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 1em;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        input {
+            margin: 10px;
+            padding: 10px;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            transition: border-color 0.3s ease;
+            width: 300px;
+        }
+
+        input:focus {
+            border-color: #007BFF;
+            outline: none;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        .speed-control {
+            margin: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <section class="head">Sorting Visualizer</section>
+    
+    <div class="controls">
+        <input type="text" id="inputArray" placeholder="Enter 5-20 numbers (1-100) separated by commas" />
+        <button onclick="setArray()">Set Array</button>
+        <button onclick="generateArray()">Generate New Array</button>
+    </div>
+    
+    <div class="speed-control">
+        <label for="speed">Animation Speed:</label>
+        <input type="range" id="speed" min="10" max="1000" value="500">
+    </div>
+    
+    <div>
+        <button onclick="bubbleSort()" id="bubbleBtn">Bubble Sort</button>
+        <button onclick="selectionSort()" id="selectionBtn">Selection Sort</button>
+        <button onclick="insertionSort()" id="insertionBtn">Insertion Sort</button>
+        <button onclick="quickSort()" id="quickBtn">Quick Sort</button>
+        <button onclick="stopSorting()">Stop</button>
+    </div>
+
+    <section class="data-container" id="dataContainer"></section>
+
+    <script>
+        let array = [];
+        let isSorting = false;
+        let delayTime = 500;
+        let stopRequested = false;
+
+        // Speed control
+        document.getElementById('speed').addEventListener('input', function() {
+            delayTime = 1010 - this.value; // Invert so higher value = faster
+        });
+
+        function setArray() {
+            if (isSorting) return;
+            
+            const input = document.getElementById('inputArray').value;
+            if (input.trim() === "") {
+                alert("Please enter numbers separated by commas.");
+                return;
+            }
+            
+            const numbers = input.split(',').map(num => parseInt(num.trim())).filter(num => !isNaN(num));
+            
+            if (numbers.length < 5 || numbers.length > 20) {
+                alert("Please enter between 5 and 20 numbers.");
+                return;
+            }
+            
+            if (numbers.some(num => num < 1 || num > 100)) {
+                alert("Numbers must be between 1 and 100.");
+                return;
+            }
+            
+            array = numbers;
+            drawArray();
+        }
+
+        function generateArray() {
+            if (isSorting) return;
+            array = Array.from({ length: Math.floor(Math.random() * 16) + 5 }, () => Math.floor(Math.random() * 100) + 1);
+            document.getElementById('inputArray').value = array.join(', ');
+            drawArray();
+        }
+
+        function drawArray(highlightIndices = [], highlightColor = 'comparing', sortedIndices = []) {
+            const container = document.getElementById('dataContainer');
+            container.innerHTML = '';
+            
+            array.forEach((value, index) => {
+                const bar = document.createElement('div');
+                bar.style.height = `${value * 3}px`;
+                bar.className = 'bar';
+                
+                if (highlightIndices.includes(index)) {
+                    bar.classList.add(highlightColor);
+                }
+                
+                if (sortedIndices.includes(index)) {
+                    bar.classList.add('sorted');
+                }
+                
+                // Add value label for better readability
+                const label = document.createElement('div');
+                label.textContent = value;
+                label.style.marginTop = '5px';
+                label.style.fontSize = '12px';
+                bar.appendChild(label);
+                
+                container.appendChild(bar);
+            });
+        }
+
+        function disableButtons(disabled) {
+            document.getElementById('bubbleBtn').disabled = disabled;
+            document.getElementById('selectionBtn').disabled = disabled;
+            document.getElementById('insertionBtn').disabled = disabled;
+            document.getElementById('quickBtn').disabled = disabled;
+        }
+
+        function stopSorting() {
+            stopRequested = true;
+            isSorting = false;
+            disableButtons(false);
+        }
+
+        async function bubbleSort() {
+            if (isSorting) return;
+            isSorting = true;
+            stopRequested = false;
+            disableButtons(true);
+            
+            let sortedIndices = [];
+            for (let i = 0; i < array.length - 1; i++) {
+                if (stopRequested) break;
+                
+                for (let j = 0; j < array.length - i - 1; j++) {
+                    if (stopRequested) break;
+                    
+                    // Highlight the elements being compared
+                    drawArray([j, j+1], 'comparing', sortedIndices);
+                    await new Promise(resolve => setTimeout(resolve, delayTime/2));
+                    
+                    if (array[j] > array[j + 1]) {
+                        // Highlight the elements being swapped
+                        drawArray([j, j+1], 'swapping', sortedIndices);
+                        await new Promise(resolve => setTimeout(resolve, delayTime/2));
+                        
+                        [array[j], array[j + 1]] = [array[j + 1], array[j]];
+                    }
+                }
+                sortedIndices.push(array.length - 1 - i);
+                drawArray([], '', sortedIndices);
+            }
+            
+            if (!stopRequested) {
+                drawArray([], '', Array.from({length: array.length}, (_, i) => i));
+            }
+            
+            isSorting = false;
+            disableButtons(false);
+        }
+
+        async function selectionSort() {
+            if (isSorting) return;
+            isSorting = true;
+            stopRequested = false;
+            disableButtons(true);
+            
+            let sortedIndices = [];
+            for (let i = 0; i < array.length - 1; i++) {
+                if (stopRequested) break;
+                
+                let minIndex = i;
+                drawArray([minIndex], 'comparing', sortedIndices);
+                await new Promise(resolve => setTimeout(resolve, delayTime/2));
+                
+                for (let j = i + 1; j < array.length; j++) {
+                    if (stopRequested) break;
+                    
+                    drawArray([minIndex, j], 'comparing', sortedIndices);
+                    await new Promise(resolve => setTimeout(resolve, delayTime/2));
+                    
+                    if (array[j] < array[minIndex]) {
+                        minIndex = j;
+                        drawArray([minIndex], 'comparing', sortedIndices);
+                        await new Promise(resolve => setTimeout(resolve, delayTime/2));
+                    }
+                }
+                
+                if (minIndex !== i) {
+                    drawArray([i, minIndex], 'swapping', sortedIndices);
+                    await new Promise(resolve => setTimeout(resolve, delayTime/2));
+                    
+                    [array[i], array[minIndex]] = [array[minIndex], array[i]];
+                }
+                
+                sortedIndices.push(i);
+                drawArray([], '', sortedIndices);
+            }
+            
+            if (!stopRequested) {
+                sortedIndices.push(array.length - 1);
+                drawArray([], '', Array.from({length: array.length}, (_, i) => i));
+            }
+            
+            isSorting = false;
+            disableButtons(false);
+        }
+
+        async function insertionSort() {
+            if (isSorting) return;
+            isSorting = true;
+            stopRequested = false;
+            disableButtons(true);
+            
+            let sortedIndices = [0];
+            for (let i = 1; i < array.length; i++) {
+                if (stopRequested) break;
+                
+                let key = array[i];
+                let j = i - 1;
+                
+                drawArray([i, j], 'comparing', sortedIndices);
+                await new Promise(resolve => setTimeout(resolve, delayTime/2));
+                
+                while (j >= 0 && array[j] > key) {
+                    if (stopRequested) break;
+                    
+                    drawArray([j, j+1], 'swapping', sortedIndices);
+                    await new Promise(resolve => setTimeout(resolve, delayTime/2));
+                    
+                    array[j + 1] = array[j];
+                    j--;
+                    
+                    if (j >= 0) {
+                        drawArray([j, j+1], 'comparing', sortedIndices);
+                        await new Promise(resolve => setTimeout(resolve, delayTime/2));
+                    }
+                }
+                
+                array[j + 1] = key;
+                sortedIndices = Array.from({length: i+1}, (_, i) => i);
+                drawArray([], '', sortedIndices);
+            }
+            
+            if (!stopRequested) {
+                drawArray([], '', Array.from({length: array.length}, (_, i) => i));
+            }
+            
+            isSorting = false;
+            disableButtons(false);
+        }
+
+        async function quickSort() {
+            if (isSorting) return;
+            isSorting = true;
+            stopRequested = false;
+            disableButtons(true);
+            
+            await quickSortHelper(0, array.length - 1);
+            
+            if (!stopRequested) {
+                drawArray([], '', Array.from({length: array.length}, (_, i) => i));
+            }
+            
+            isSorting = false;
+            disableButtons(false);
+        }
+
+        async function quickSortHelper(low, high) {
+            if (low < high && !stopRequested) {
+                const pivotIndex = await partition(low, high);
+                await quickSortHelper(low, pivotIndex - 1);
+                await quickSortHelper(pivotIndex + 1, high);
+            }
+        }
+
+        async function partition(low, high) {
+            const pivot = array[high];
+            let i = low - 1;
+            
+            // Highlight pivot
+            drawArray([high], 'pivot');
+            await new Promise(resolve => setTimeout(resolve, delayTime));
+            
+            for (let j = low; j < high; j++) {
+                if (stopRequested) return;
+                
+                drawArray([j, high], 'comparing');
+                await new Promise(resolve => setTimeout(resolve, delayTime/2));
+                
+                if (array[j] < pivot) {
+                    i++;
+                    
+                    if (i !== j) {
+                        drawArray([i, j], 'swapping');
+                        await new Promise(resolve => setTimeout(resolve, delayTime/2));
+                        
+                        [array[i], array[j]] = [array[j], array[i]];
+                    }
+                }
+            }
+            
+            drawArray([i+1, high], 'swapping');
+            await new Promise(resolve => setTimeout(resolve, delayTime/2));
+            
+            [array[i + 1], array[high]] = [array[high], array[i + 1]];
+            
+            return i + 1;
+        }
+
+        // Initial array generation
+        generateArray();
+    </script>
+</body>
+
+</html>
